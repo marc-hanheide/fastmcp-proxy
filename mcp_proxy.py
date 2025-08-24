@@ -4,6 +4,7 @@ import argparse
 import json
 from fastmcp import FastMCP, Client
 
+
 # Load server configuration from a JSON file
 with open('servers.json', 'r') as f:
     proxy_config = json.load(f)
@@ -12,6 +13,21 @@ with open('servers.json', 'r') as f:
 # FastMCP.as_proxy() handles the internal creation and mounting of clients
 proxy_client = Client(proxy_config)
 app = FastMCP.as_proxy(backend=proxy_client)
+
+def main(transport="http", port=8000, host="127.0.0.1"):
+
+
+    print(f"Starting proxy with {args.transport} transport...")
+
+    if args.transport == "stdio":
+        # Run the server over standard input/output
+        app.run(transport="stdio")
+    elif args.transport == "sse":
+        # Run the server with Server-Sent Events
+        app.run(transport="sse", port=args.port, host=args.host)
+    elif args.transport == "http":
+        # Run the server with streamable HTTP
+        app.run(transport="http", port=args.port, host=args.host)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run the FastMCP proxy server.")
@@ -32,14 +48,4 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    print(f"Starting proxy with {args.transport} transport...")
-
-    if args.transport == "stdio":
-        # Run the server over standard input/output
-        app.run(transport="stdio")
-    elif args.transport == "sse":
-        # Run the server with Server-Sent Events
-        app.run(transport="sse", port=args.port, host=args.host)
-    elif args.transport == "http":
-        # Run the server with streamable HTTP
-        app.run(transport="http", port=args.port, host=args.host)
+    main(transport=args.transport, port=args.port, host=args.host)
