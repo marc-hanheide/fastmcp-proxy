@@ -3,19 +3,40 @@ import asyncio
 import argparse
 import json
 from fastmcp import FastMCP, Client
+from fastmcp.server.proxy import ProxyClient
+from starlette.requests import Request
+from starlette.responses import PlainTextResponse
 
 
 # Load server configuration from a JSON file
-with open('servers.json', 'r') as f:
-    proxy_config = json.load(f)
+
+proxy_config = {
+  "mcpServers": {
+    "context7": {
+      "transport": "stdio",
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp"]
+    },
+    "time": {
+      "transport": "stdio",
+      "command": "uvx",
+      "args": ["mcp-server-time", "--local-timezone", "Etc/UTC"]
+    },
+    "mapbox": {
+      "timeout": 60,
+      "command": "npx",
+      "args": [ "-y", "@mapbox/mcp-server"]
+    }
+
+  }
+}
 
 # Create a FastMCP application instance that acts as a proxy
 # FastMCP.as_proxy() handles the internal creation and mounting of clients
 
-proxy_client = Client(proxy_config)
-app = FastMCP()
-named_proxies = FastMCP.as_proxy(backend=proxy_client)
-app.mount(named_proxies, prefix="/proxies", as_proxy=True)
+app = FastMCP.as_proxy(proxy_config)
+# named_proxies = FastMCP.as_proxy(backend=proxy_client)
+# app.mount(named_proxies, prefix="/proxies", as_proxy=True)
 
 
 @app.tool
@@ -23,6 +44,10 @@ def echo_tool(text: str) -> str:
     """Echo the input text"""
     return text
 
+
+@app.custom_route("/health", methods=["GET"])
+async def health_check(request: Request) -> PlainTextResponse:
+    return PlainTextResponse("OK")
 
 
 def main(transport="http", port=8000, host="127.0.0.1"):
