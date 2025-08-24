@@ -13,9 +13,9 @@ with open('servers.json', 'r') as f:
 # FastMCP.as_proxy() handles the internal creation and mounting of clients
 
 proxy_client = Client(proxy_config)
-app = FastMCP(debug=True)
-named_proxies = FastMCP.as_proxy(backend=proxy_client, )
-app.mount(named_proxies, prefix="/proxies")
+app = FastMCP()
+named_proxies = FastMCP.as_proxy(backend=proxy_client)
+app.mount(named_proxies, prefix="/proxies", as_proxy=True)
 
 
 @app.tool
