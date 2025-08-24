@@ -11,8 +11,19 @@ with open('servers.json', 'r') as f:
 
 # Create a FastMCP application instance that acts as a proxy
 # FastMCP.as_proxy() handles the internal creation and mounting of clients
+
 proxy_client = Client(proxy_config)
-app = FastMCP.as_proxy(backend=proxy_client)
+app = FastMCP(debug=True)
+named_proxies = FastMCP.as_proxy(backend=proxy_client, )
+app.mount(named_proxies, prefix="/proxies")
+
+
+@app.tool
+def echo_tool(text: str) -> str:
+    """Echo the input text"""
+    return text
+
+
 
 def main(transport="http", port=8000, host="127.0.0.1"):
 
