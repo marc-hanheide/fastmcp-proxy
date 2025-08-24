@@ -17,17 +17,17 @@ app = FastMCP.as_proxy(backend=proxy_client)
 def main(transport="http", port=8000, host="127.0.0.1"):
 
 
-    print(f"Starting proxy with {args.transport} transport...")
+    print(f"Starting proxy with {transport} transport...")
 
-    if args.transport == "stdio":
+    if transport == "stdio":
         # Run the server over standard input/output
         app.run(transport="stdio")
-    elif args.transport == "sse":
+    elif transport == "sse":
         # Run the server with Server-Sent Events
-        app.run(transport="sse", port=args.port, host=args.host)
-    elif args.transport == "http":
+        app.run(transport="sse", port=port, host=host)
+    elif transport == "http":
         # Run the server with streamable HTTP
-        app.run(transport="http", port=args.port, host=args.host)
+        app.run(transport="http", port=port, host=host)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run the FastMCP proxy server.")
