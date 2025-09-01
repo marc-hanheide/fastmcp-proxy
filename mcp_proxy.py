@@ -1,13 +1,7 @@
-import asyncio
 import argparse
-import json
 import os
-import requests
-from typing import Dict, Any, Optional
-from jose import jwt, JWTError
 from dotenv import load_dotenv
-from fastmcp import FastMCP, Client
-from fastmcp.server.proxy import ProxyClient
+from fastmcp import FastMCP
 from fastmcp.server.auth.providers.jwt import JWTVerifier, StaticTokenVerifier
 from starlette.requests import Request
 from starlette.responses import PlainTextResponse
@@ -43,8 +37,6 @@ proxy_config = {
 
 # Scope configuration for each server (separate from FastMCP config)
 server_scopes = {"context7": "context", "time": "time", "mapbox": "maps"}
-
-from fastmcp import FastMCP
 
 # Initialize authentication verifier
 if OIDC_CLIENT_ID and OIDC_CLIENT_SECRET and OIDC_ISSUER:
