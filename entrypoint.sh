@@ -2,7 +2,7 @@
 set -e
 
 # Default values
-TRANSPORT=${TRANSPORT:-sse}
+TRANSPORT=${TRANSPORT:-http}
 HOST=${HOST:-0.0.0.0}
 
 # Set default port based on transport if not specified

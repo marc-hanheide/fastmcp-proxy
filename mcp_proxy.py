@@ -31,10 +31,27 @@ proxy_config = {
   }
 }
 
+from fastmcp import FastMCP
+from fastmcp.server.auth.providers.jwt import StaticTokenVerifier
+
+# Define development tokens and their associated claims
+verifier = StaticTokenVerifier(
+    tokens={
+        "testtoken": {
+            "client_id": "marc@hanheide,net",
+            "scopes": ["read:data", "write:data", "admin:users"]
+        }
+    },
+    required_scopes=["read:data"]
+)
+
+#mcp = FastMCP(name="Development Server", auth=verifier)
+
+
 # Create a FastMCP application instance that acts as a proxy
 # FastMCP.as_proxy() handles the internal creation and mounting of clients
 
-app = FastMCP.as_proxy(proxy_config)
+app = FastMCP.as_proxy(proxy_config, name="proxy", auth=verifier)
 # named_proxies = FastMCP.as_proxy(backend=proxy_client)
 # app.mount(named_proxies, prefix="/proxies", as_proxy=True)
 
