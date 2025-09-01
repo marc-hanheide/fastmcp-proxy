@@ -1,2 +1,5 @@
 fastmcp>=2.9.0
 nvm
+python-jose[cryptography]
+requests
+python-dotenv

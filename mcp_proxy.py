@@ -2,14 +2,26 @@
 import asyncio
 import argparse
 import json
+import os
+import requests
+from typing import Dict, Any, Optional
+from jose import jwt, JWTError
+from dotenv import load_dotenv
 from fastmcp import FastMCP, Client
 from fastmcp.server.proxy import ProxyClient
+from fastmcp.server.auth.providers.jwt import JWTVerifier, StaticTokenVerifier
 from starlette.requests import Request
 from starlette.responses import PlainTextResponse
 
+# Load environment variables from .env file
+load_dotenv()
+
+# Get OIDC configuration from environment variables
+OIDC_CLIENT_ID = os.getenv("OIDC_CLIENT_ID")
+OIDC_CLIENT_SECRET = os.getenv("OIDC_CLIENT_SECRET") 
+OIDC_ISSUER = os.getenv("OIDC_ISSUER")
 
 # Load server configuration from a JSON file
-
 proxy_config = {
   "mcpServers": {
     "context7": {
@@ -27,33 +39,47 @@ proxy_config = {
       "command": "npx",
       "args": [ "-y", "@mapbox/mcp-server"]
     }
-
   }
 }
 
+# Scope configuration for each server (separate from FastMCP config)
+server_scopes = {
+    "context7": "context",
+    "time": "time", 
+    "mapbox": "maps"
+}
+
 from fastmcp import FastMCP
-from fastmcp.server.auth.providers.jwt import StaticTokenVerifier
 
-# Define development tokens and their associated claims
-verifier = StaticTokenVerifier(
-    tokens={
-        "testtoken": {
-            "client_id": "marc@hanheide,net",
-            "scopes": ["read:data", "write:data", "admin:users"]
-        }
-    },
-    required_scopes=["read:data"]
-)
-
-#mcp = FastMCP(name="Development Server", auth=verifier)
-
+# Initialize authentication verifier
+if OIDC_CLIENT_ID and OIDC_CLIENT_SECRET and OIDC_ISSUER:
+    # Use OIDC authentication for production
+    # Construct the JWKS URI from the issuer
+    jwks_uri = f"{OIDC_ISSUER}/protocol/openid-connect/certs"
+    
+    verifier = JWTVerifier(
+        jwks_uri=jwks_uri,
+        issuer=OIDC_ISSUER,
+        audience=OIDC_CLIENT_ID,
+        algorithm="RS256",
+        required_scopes=["openid"]  # Base required scope
+    )
+    print(f"Using OIDC authentication with issuer: {OIDC_ISSUER}")
+else:
+    # Fallback to static token for development
+    print("Warning: OIDC not configured, using static token for development")
+    verifier = StaticTokenVerifier(
+        tokens={
+            "testtoken": {
+                "client_id": "development",
+                "scopes": ["openid", "context", "time", "maps"]
+            }
+        },
+        required_scopes=["openid"]
+    )
 
 # Create a FastMCP application instance that acts as a proxy
-# FastMCP.as_proxy() handles the internal creation and mounting of clients
-
 app = FastMCP.as_proxy(proxy_config, name="proxy", auth=verifier)
-# named_proxies = FastMCP.as_proxy(backend=proxy_client)
-# app.mount(named_proxies, prefix="/proxies", as_proxy=True)
 
 
 @app.tool
@@ -68,8 +94,6 @@ async def health_check(request: Request) -> PlainTextResponse:
 
 
 def main(transport="http", port=8000, host="127.0.0.1"):
-
-
     print(f"Starting proxy with {transport} transport...")
 
     if transport == "stdio":
