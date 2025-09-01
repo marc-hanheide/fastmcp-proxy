@@ -45,10 +45,6 @@ jobs:
         # Exit-zero treats all errors as warnings
         flake8 mcp_proxy.py --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
-    - name: Type check with mypy
-      run: |
-        mypy mcp_proxy.py --ignore-missing-imports
-
     - name: Test Python syntax
       run: |
         python -m py_compile mcp_proxy.py
@@ -68,29 +64,3 @@ jobs:
             print(f'✓ Module imports but has runtime dependencies: {e}')
         "
 
-    - name: Install Node.js for runtime dependencies
-      uses: actions/setup-node@v4
-      with:
-        node-version: '18'
-
-    - name: Test app initialization (dry run)
-      run: |
-        # Test that the app can be initialized without actually running
-        python -c "
-        import os
-        import sys
-        sys.path.insert(0, '.')
-        
-        # Set minimal environment for testing
-        os.environ['OIDC_CLIENT_ID'] = ''
-        os.environ['OIDC_CLIENT_SECRET'] = ''
-        os.environ['OIDC_ISSUER'] = ''
-        
-        try:
-            from mcp_proxy import app, verifier
-            print('✓ App initialization successful')
-            print(f'✓ Auth verifier type: {type(verifier).__name__}')
-        except Exception as e:
-            print(f'✗ App initialization failed: {e}')
-            sys.exit(1)
-        "

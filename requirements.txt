@@ -3,3 +3,4 @@ nvm
 python-jose[cryptography]
 requests
 python-dotenv
+black

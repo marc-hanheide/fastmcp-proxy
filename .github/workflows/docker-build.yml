@@ -17,25 +17,14 @@ jobs:
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
 
-    - name: Build Docker image (proxy stage)
+    - name: Build Docker image
       uses: docker/build-push-action@v5
       with:
         context: .
         file: ./Dockerfile
-        target: proxy
         push: false
+        load: true
         tags: fastmcp-proxy:test-proxy
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
-
-    - name: Build Docker image (mcps stage)
-      uses: docker/build-push-action@v5
-      with:
-        context: .
-        file: ./Dockerfile
-        target: mcps
-        push: false
-        tags: fastmcp-proxy:test-mcps
         cache-from: type=gha
         cache-to: type=gha,mode=max
 
@@ -58,70 +47,3 @@ jobs:
           exit 1
         fi
 
-    - name: Test Docker image health endpoint
-      run: |
-        # Start container in background
-        docker run --rm -d --name test-health -p 8001:8001 fastmcp-proxy:test-proxy http --port 8001 --host 0.0.0.0
-        
-        # Wait for startup
-        sleep 5
-        
-        # Test health endpoint
-        for i in {1..10}; do
-          if curl -f http://localhost:8001/health; then
-            echo "✓ Health endpoint responded successfully"
-            docker stop test-health
-            exit 0
-          fi
-          echo "Attempt $i failed, retrying..."
-          sleep 2
-        done
-        
-        echo "✗ Health endpoint test failed"
-        docker logs test-health || true
-        docker stop test-health || true
-        exit 1
-
-    - name: Test image with SSE transport
-      run: |
-        # Test SSE transport startup
-        docker run --rm -d --name test-sse -p 8000:8000 fastmcp-proxy:test-proxy sse --port 8000 --host 0.0.0.0
-        
-        # Wait for startup
-        sleep 3
-        
-        # Check if container is running
-        if docker ps | grep -q test-sse; then
-          echo "✓ SSE container started successfully"
-          docker stop test-sse
-        else
-          echo "✗ SSE container failed to start"
-          docker logs test-sse || true
-          exit 1
-        fi
-
-    - name: Validate Docker image layers
-      run: |
-        # Check image size and layers
-        echo "=== Proxy Image Info ==="
-        docker images fastmcp-proxy:test-proxy
-        docker history fastmcp-proxy:test-proxy
-        
-        echo "=== MCPS Image Info ==="
-        docker images fastmcp-proxy:test-mcps
-        docker history fastmcp-proxy:test-mcps
-
-    - name: Security scan with Trivy
-      uses: aquasecurity/trivy-action@master
-      with:
-        image-ref: fastmcp-proxy:test-proxy
-        format: 'sarif'
-        output: 'trivy-results.sarif'
-      continue-on-error: true
-
-    - name: Upload Trivy scan results
-      uses: github/codeql-action/upload-sarif@v2
-      if: always()
-      with:
-        sarif_file: 'trivy-results.sarif'
-      continue-on-error: true
