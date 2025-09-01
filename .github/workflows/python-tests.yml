@@ -1,0 +1,96 @@
+name: Python Tests
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install uv
+      run: |
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+    - name: Install dependencies
+      run: |
+        uv pip install --system -r requirements.txt
+
+    - name: Install development dependencies
+      run: |
+        uv pip install --system black flake8 mypy
+
+    - name: Check code formatting with black
+      run: |
+        black --check --diff mcp_proxy.py
+
+    - name: Lint with flake8
+      run: |
+        # Stop the build if there are Python syntax errors or undefined names
+        flake8 mcp_proxy.py --count --select=E9,F63,F7,F82 --show-source --statistics
+        # Exit-zero treats all errors as warnings
+        flake8 mcp_proxy.py --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+    - name: Type check with mypy
+      run: |
+        mypy mcp_proxy.py --ignore-missing-imports
+
+    - name: Test Python syntax
+      run: |
+        python -m py_compile mcp_proxy.py
+
+    - name: Test import and basic functionality
+      run: |
+        python -c "
+        import sys
+        sys.path.insert(0, '.')
+        try:
+            import mcp_proxy
+            print('✓ Module imports successfully')
+        except ImportError as e:
+            print(f'✗ Import failed: {e}')
+            sys.exit(1)
+        except Exception as e:
+            print(f'✓ Module imports but has runtime dependencies: {e}')
+        "
+
+    - name: Install Node.js for runtime dependencies
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+
+    - name: Test app initialization (dry run)
+      run: |
+        # Test that the app can be initialized without actually running
+        python -c "
+        import os
+        import sys
+        sys.path.insert(0, '.')
+        
+        # Set minimal environment for testing
+        os.environ['OIDC_CLIENT_ID'] = ''
+        os.environ['OIDC_CLIENT_SECRET'] = ''
+        os.environ['OIDC_ISSUER'] = ''
+        
+        try:
+            from mcp_proxy import app, verifier
+            print('✓ App initialization successful')
+            print(f'✓ Auth verifier type: {type(verifier).__name__}')
+        except Exception as e:
+            print(f'✗ App initialization failed: {e}')
+            sys.exit(1)
+        "
