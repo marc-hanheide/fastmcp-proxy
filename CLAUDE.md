@@ -17,29 +17,39 @@ This is a FastMCP proxy server that exposes multiple MCP (Model Context Protocol
 
 ### OpenID Connect (OIDC) Integration
 
-The proxy implements OIDC authentication compatible with Claude's remote MCP server requirements:
+The proxy implements OIDC authentication compatible with Claude's remote MCP server requirements using FastMCP's `OAuthProvider`:
 
 - **Provider**: Keycloak server at `https://lcas.lincoln.ac.uk/auth/realms/Marc`
-- **Client Configuration**: Uses pre-configured client credentials (not DCR)
+- **Client Configuration**: Uses pre-configured client credentials (`mcp` client)
+- **OAuth2 Flow**: Standard authorization code flow with PKCE support
 - **Token Verification**: JWT verification using JWKS endpoint
-- **Scope-based Authorization**: Each MCP server can require specific scopes
+- **Automatic Endpoints**: OAuth2 discovery and authorization endpoints auto-generated
+
+### OAuth2 Endpoints
+
+The proxy automatically provides these OAuth2 endpoints:
+- `/.well-known/oauth-authorization-server` - OAuth2 server metadata
+- `/authorize` - Authorization endpoint for OAuth2 flow
+- `/token` - Token exchange endpoint
+- `/.well-known/oauth-protected-resource` - Resource server metadata
 
 ### Environment Configuration
 
 Required OIDC environment variables in `.env`:
 ```bash
 OIDC_CLIENT_ID=mcp                                                    # Pre-configured client ID
-OIDC_CLIENT_SECRET=your_secret_here                                   # Client secret from Keycloak
+OIDC_CLIENT_SECRET=yKcQDTpgHBzdQtsZn6eHMK5MY5ffZzlR                  # Client secret from Keycloak
 OIDC_ISSUER=https://lcas.lincoln.ac.uk/auth/realms/Marc              # Keycloak realm issuer
 ```
 
-### Scope Configuration
+### Authentication Flow for Claude
 
-Each MCP server can require specific OAuth scopes:
-- **context7**: Requires `context` scope for document search access
-- **time**: Requires `time` scope for time operations
-- **mapbox**: Requires `maps` scope for mapping services
-- **Default**: Falls back to `openid` scope if no specific scope configured
+1. **Discovery**: Claude queries `/.well-known/oauth-authorization-server` for OAuth2 configuration
+2. **Authorization**: Claude redirects user to `/authorize` endpoint with client credentials
+3. **User Login**: User authenticates with Keycloak and grants authorization
+4. **Code Exchange**: Claude exchanges authorization code for access token at `/token` endpoint
+5. **API Access**: Claude uses Bearer token to access MCP endpoints
+6. **Token Validation**: Server validates token against Keycloak JWKS endpoint
 
 ### Development Fallback
 
@@ -113,23 +123,33 @@ The proxy supports three transport modes:
 
 ## Claude Integration
 
-### Authentication Flow
-1. Claude requests access with OAuth2 Bearer token
-2. Proxy verifies token against Keycloak JWKS endpoint
-3. Token claims are validated (issuer, audience, signature)
-4. User scopes are extracted from token
-5. Access to MCP servers is granted based on required scopes
+### OAuth2 Authorization Code Flow
+1. Claude discovers OAuth2 configuration from server metadata endpoints
+2. Claude initiates authorization flow by redirecting to Keycloak
+3. User authenticates with Keycloak and grants access to the MCP client
+4. Claude receives authorization code and exchanges it for access token
+5. Claude uses Bearer token to access MCP tools and resources
+
+### Server Endpoints
+- **MCP Endpoint**: `/mcp` - Main MCP protocol endpoint (requires Bearer token)
+- **Health Check**: `/health` - Health status (no auth required)
+- **OAuth Discovery**: `/.well-known/oauth-authorization-server` - OAuth2 server metadata
+- **Authorization**: `/authorize` - OAuth2 authorization endpoint
+- **Token Exchange**: `/token` - OAuth2 token endpoint
+- **Resource Info**: `/.well-known/oauth-protected-resource` - Resource server metadata
 
 ### Token Requirements
 - **Algorithm**: RS256 (RSA with SHA-256)
 - **Issuer**: Must match configured `OIDC_ISSUER`
-- **Audience**: Must match configured `OIDC_CLIENT_ID`
-- **Minimum Scope**: `openid` (additional scopes required per server)
+- **Audience**: Any valid audience (flexible for Keycloak integration)
+- **Minimum Scope**: `openid` (additional scopes configurable per server)
 
-### API Endpoints
-- `/health`: Health check endpoint (no auth required)
-- Standard MCP endpoints require valid Bearer token
-- Tool access filtered by scope requirements
+### Keycloak Integration
+- **Realm**: `Marc` at `https://lcas.lincoln.ac.uk/auth/realms/Marc`
+- **Client Type**: Confidential client with authorization code flow
+- **Valid Redirect URIs**: Must include Claude's callback URLs
+- **Client Authentication**: Client secret authentication
+- **Supported Flows**: Authorization code flow with PKCE
 
 ## Container Architecture
 

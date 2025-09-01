@@ -3,6 +3,7 @@ import os
 from dotenv import load_dotenv
 from fastmcp import FastMCP
 from fastmcp.server.auth.providers.jwt import JWTVerifier, StaticTokenVerifier
+from fastmcp.server.auth import OAuthProvider
 from starlette.requests import Request
 from starlette.responses import PlainTextResponse
 
@@ -52,6 +53,23 @@ if OIDC_CLIENT_ID and OIDC_CLIENT_SECRET and OIDC_ISSUER:
         required_scopes=["openid"],  # Base required scope
     )
     print(f"Using OIDC authentication with issuer: {OIDC_ISSUER}")
+
+    # Create the OAuth provider with Keycloak configuration
+    auth = OAuthProvider(
+        # Base URL for this MCP server
+        base_url="http://127.0.0.1:8001",  # Default, will be updated based on actual host/port
+        
+        # Keycloak issuer URL for OIDC discovery
+        issuer_url=OIDC_ISSUER,
+        
+        # Required scopes for access
+        required_scopes=["openid"],
+        
+        # Optional: specify resource server URL if different from base_url
+        resource_server_url=None,  # Will use base_url + "/mcp" by default
+    )
+
+
 else:
     # Fallback to static token for development
     print("Warning: OIDC not configured, using static token for development")
@@ -64,9 +82,10 @@ else:
         },
         required_scopes=["openid"],
     )
+    auth = verifier
 
 # Create a FastMCP application instance that acts as a proxy
-app = FastMCP.as_proxy(proxy_config, name="proxy", auth=verifier)
+app = FastMCP.as_proxy(proxy_config, name="proxy", auth=auth)
 
 
 @app.tool
@@ -82,6 +101,20 @@ async def health_check(request: Request) -> PlainTextResponse:
 
 def main(transport="http", port=8000, host="127.0.0.1"):
     print(f"Starting proxy with {transport} transport...")
+    
+    # Update the OAuth provider base URL if using OAuthProvider
+    if OIDC_CLIENT_ID and OIDC_CLIENT_SECRET and OIDC_ISSUER:
+        # Update the base URL in the OAuth provider to match actual server configuration
+        if hasattr(auth, 'base_url'):
+            if host == "0.0.0.0":
+                # When binding to all interfaces, use localhost for OAuth redirects
+                new_base_url = f"http://localhost:{port}"
+            else:
+                new_base_url = f"http://{host}:{port}"
+            
+            # Update the base URL in the OAuth provider
+            auth.base_url = new_base_url
+            print(f"OAuth provider configured with base URL: {new_base_url}")
 
     if transport == "stdio":
         # Run the server over standard input/output
