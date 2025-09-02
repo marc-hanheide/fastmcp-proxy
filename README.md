@@ -153,6 +153,7 @@ docker rm mcp-proxy
 docker ps
 ```
 
+
 ### Environment Variables
 
 The following environment variables can be configured in the `.env` file or passed directly:
@@ -161,6 +162,16 @@ The following environment variables can be configured in the `.env` file or pass
 - **`HOST`**: Host to bind to - Default: `0.0.0.0`
 - **`PORT`**: Port number for the service - Default: `8000`
 - **`TZ`**: Timezone - Default: `Etc/UTC`
+- **`ZROK_TOKEN`**, **`ZROK_NAME`**, **`ZROK_API_ENDPOINT`**, **`ZROK_ENV_NAME`**: Zrok tunnel configuration
+- **`MAPBOX_ACCESS_TOKEN`**: Mapbox API token
+- **Google OAuth2 Authentication:**
+  - `FASTMCP_SERVER_AUTH=GOOGLE`
+  - `FASTMCP_SERVER_AUTH_GOOGLE_CLIENT_ID` (your Google OAuth2 client ID)
+  - `FASTMCP_SERVER_AUTH_GOOGLE_CLIENT_SECRET` (your Google OAuth2 client secret)
+  - `FASTMCP_SERVER_AUTH_GOOGLE_BASE_URL` (the public base URL, e.g. `https://${ZROK_NAME}.zrok.lcas.group`)
+  - `FASTMCP_SERVER_AUTH_GOOGLE_REQUIRED_SCOPES` (default: `openid,https://www.googleapis.com/auth/userinfo.email`)
+
+See `env.example` for a template.
 
 ### Quick Start Examples
 
@@ -209,42 +220,29 @@ The `servers.json` file is mounted as a volume, so changes take effect on contai
 
 ---
 
+
 ## How to Test
 
 You can test the running proxy using any MCP-compliant client or a tool like `curl`.
 
 ### Testing SSE Transport (Port 8000)
 ```bash
-# Test the SSE endpoint
 curl http://localhost:8000/sse/
-
-# Check server health
 curl http://localhost:8000/
 ```
 
 ### Testing HTTP Transport (Port 8001)
 ```bash
-# Test the HTTP endpoint
-curl http://localhost:8001/
-
-# Check server health
 curl http://localhost:8001/
 ```
 
-### Testing with Different Services
-```bash
-# Test SSE service
-docker-compose up mcp-proxy-sse
-curl http://localhost:8000/sse/
+### Authentication
 
-# Test HTTP service
-docker-compose up mcp-proxy-http
-curl http://localhost:8001/
-```
+When Google OAuth2 is enabled, clients must authenticate using a Google account. The proxy will require a valid Bearer token in the `Authorization` header for protected endpoints. The health endpoint does not require authentication.
 
 ### Testing MCP Servers
 
-The proxy currently supports these MCP servers:
+The proxy supports these MCP servers:
 
 - **context7**: Document search and context retrieval (Node.js via `npx`)
 - **fetch**: Web content fetching (Python via `uvx`)

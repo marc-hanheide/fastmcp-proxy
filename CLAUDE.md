@@ -13,50 +13,40 @@ This is a FastMCP proxy server that exposes multiple MCP (Model Context Protocol
 - **entrypoint.sh**: Docker entrypoint script that configures transport and networking based on environment variables
 - **Dockerfile**: Production-ready Alpine Linux container with Python 3.12 and Node.js for mixed server support
 
+
 ## Authentication
 
-### OpenID Connect (OIDC) Integration
+### Google OAuth2 Integration
 
-The proxy implements OIDC authentication compatible with Claude's remote MCP server requirements using FastMCP's `OAuthProvider`:
+The proxy uses Google OAuth2 as the main authentication method, compatible with Claude and other MCP clients:
 
-- **Provider**: Keycloak server at `https://lcas.lincoln.ac.uk/auth/realms/Marc`
-- **Client Configuration**: Uses pre-configured client credentials (`mcp` client)
-- **OAuth2 Flow**: Standard authorization code flow with PKCE support
-- **Token Verification**: JWT verification using JWKS endpoint
-- **Automatic Endpoints**: OAuth2 discovery and authorization endpoints auto-generated
-
-### OAuth2 Endpoints
-
-The proxy automatically provides these OAuth2 endpoints:
-- `/.well-known/oauth-authorization-server` - OAuth2 server metadata
-- `/authorize` - Authorization endpoint for OAuth2 flow
-- `/token` - Token exchange endpoint
-- `/.well-known/oauth-protected-resource` - Resource server metadata
+- **Provider**: Google OAuth2
+- **Client Configuration**: Uses your own Google OAuth2 credentials
+- **OAuth2 Flow**: Standard authorization code flow
+- **Token Verification**: JWT verification using Google's public keys
 
 ### Environment Configuration
 
-Required OIDC environment variables in `.env`:
+Set the following variables in your `.env` file (see `env.example`):
 ```bash
-OIDC_CLIENT_ID=mcp                                                    # Pre-configured client ID
-OIDC_CLIENT_SECRET=yKcQDTpgHBzdQtsZn6eHMK5MY5ffZzlR                  # Client secret from Keycloak
-OIDC_ISSUER=https://lcas.lincoln.ac.uk/auth/realms/Marc              # Keycloak realm issuer
+FASTMCP_SERVER_AUTH=GOOGLE
+FASTMCP_SERVER_AUTH_GOOGLE_CLIENT_ID=YOUR_GOOGLE_CLIENT_ID
+FASTMCP_SERVER_AUTH_GOOGLE_CLIENT_SECRET=YOUR_GOOGLE_CLIENT_SECRET
+FASTMCP_SERVER_AUTH_GOOGLE_BASE_URL=https://${ZROK_NAME}.zrok.lcas.group
+FASTMCP_SERVER_AUTH_GOOGLE_REQUIRED_SCOPES=openid,https://www.googleapis.com/auth/userinfo.email
 ```
 
 ### Authentication Flow for Claude
 
-1. **Discovery**: Claude queries `/.well-known/oauth-authorization-server` for OAuth2 configuration
-2. **Authorization**: Claude redirects user to `/authorize` endpoint with client credentials
-3. **User Login**: User authenticates with Keycloak and grants authorization
-4. **Code Exchange**: Claude exchanges authorization code for access token at `/token` endpoint
-5. **API Access**: Claude uses Bearer token to access MCP endpoints
-6. **Token Validation**: Server validates token against Keycloak JWKS endpoint
+1. Claude or the user is redirected to Google's OAuth2 login page
+2. User authenticates with Google and grants access
+3. The proxy receives the authorization code and exchanges it for an access token
+4. Claude uses the Bearer token to access MCP endpoints
+5. The proxy validates the token using Google's public keys
 
 ### Development Fallback
 
-If OIDC is not configured, the proxy falls back to static token authentication:
-- Token: `testtoken`
-- Scopes: `["openid", "context", "time", "maps"]`
-- Client ID: `development`
+If Google OAuth2 is not configured, the proxy may fall back to static token authentication for development.
 
 ## Key Commands
 
@@ -130,26 +120,17 @@ The proxy supports three transport modes:
 4. Claude receives authorization code and exchanges it for access token
 5. Claude uses Bearer token to access MCP tools and resources
 
+
 ### Server Endpoints
 - **MCP Endpoint**: `/mcp` - Main MCP protocol endpoint (requires Bearer token)
 - **Health Check**: `/health` - Health status (no auth required)
-- **OAuth Discovery**: `/.well-known/oauth-authorization-server` - OAuth2 server metadata
-- **Authorization**: `/authorize` - OAuth2 authorization endpoint
-- **Token Exchange**: `/token` - OAuth2 token endpoint
-- **Resource Info**: `/.well-known/oauth-protected-resource` - Resource server metadata
+
 
 ### Token Requirements
 - **Algorithm**: RS256 (RSA with SHA-256)
-- **Issuer**: Must match configured `OIDC_ISSUER`
-- **Audience**: Any valid audience (flexible for Keycloak integration)
+- **Issuer**: Google
+- **Audience**: Your configured client ID
 - **Minimum Scope**: `openid` (additional scopes configurable per server)
-
-### Keycloak Integration
-- **Realm**: `Marc` at `https://lcas.lincoln.ac.uk/auth/realms/Marc`
-- **Client Type**: Confidential client with authorization code flow
-- **Valid Redirect URIs**: Must include Claude's callback URLs
-- **Client Authentication**: Client secret authentication
-- **Supported Flows**: Authorization code flow with PKCE
 
 ## Container Architecture
 

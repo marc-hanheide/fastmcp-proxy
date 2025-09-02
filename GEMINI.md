@@ -6,12 +6,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a FastMCP proxy server that exposes multiple MCP (Model Context Protocol) servers over various transport protocols. It's designed for production deployment using Docker containers.
 
+
 ## Core Architecture
 
 - **mcp_proxy.py**: Main FastMCP proxy application that loads server configurations and handles transport protocols
 - **servers.json**: Configuration file defining which MCP servers to proxy (context7, fetch, time)
 - **entrypoint.sh**: Docker entrypoint script that configures transport and networking based on environment variables
 - **Dockerfile**: Production-ready Alpine Linux container with Python 3.12 and Node.js for mixed server support
+
 
 ## Key Commands
 
@@ -43,11 +45,22 @@ python mcp_proxy.py stdio
 
 ## Configuration
 
+
 ### Environment Variables
 - `TRANSPORT`: Protocol type (sse, http, stdio) - defaults to sse
 - `HOST`: Bind address - defaults to 0.0.0.0
 - `PORT`: Service port - defaults to 8000 for sse, 8001 for http
 - `TZ`: Timezone - defaults to Etc/UTC
+- `ZROK_TOKEN`, `ZROK_NAME`, `ZROK_API_ENDPOINT`, `ZROK_ENV_NAME`: Zrok tunnel configuration
+- `MAPBOX_ACCESS_TOKEN`: Mapbox API token
+- **Google OAuth2 Authentication:**
+	- `FASTMCP_SERVER_AUTH=GOOGLE`
+	- `FASTMCP_SERVER_AUTH_GOOGLE_CLIENT_ID` (your Google OAuth2 client ID)
+	- `FASTMCP_SERVER_AUTH_GOOGLE_CLIENT_SECRET` (your Google OAuth2 client secret)
+	- `FASTMCP_SERVER_AUTH_GOOGLE_BASE_URL` (the public base URL, e.g. `https://${ZROK_NAME}.zrok.lcas.group`)
+	- `FASTMCP_SERVER_AUTH_GOOGLE_REQUIRED_SCOPES` (default: `openid,https://www.googleapis.com/auth/userinfo.email`)
+
+See `env.example` for a template.
 
 ### MCP Server Configuration
 Edit `servers.json` to add/modify MCP servers:
@@ -62,12 +75,14 @@ The proxy supports three transport modes:
 - **sse**: Server-Sent Events for web-based streaming
 - **http**: Streamable HTTP for traditional web requests
 
+
 ## Dependencies
 
 - **FastMCP 2.9.0+**: Core MCP proxy framework
 - **Node.js/npm**: Required for npx-based MCP servers
 - **Python 3.12**: Runtime environment
 - **uv**: Package management (containerized environment)
+
 
 ## Container Architecture
 
