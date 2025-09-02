@@ -1,6 +1,7 @@
-fastmcp>=2.9.0
+fastmcp>=2.12.0
 nvm
 python-jose[cryptography]
 requests
 python-dotenv
+eunomia-mcp
 black

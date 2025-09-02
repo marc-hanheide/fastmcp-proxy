@@ -6,6 +6,8 @@ services:
       dockerfile: Dockerfile
     volumes:
       - ./servers.json:/app/servers.json:ro
+    env_file:
+      - .env
 
   zrok:
     # currently requires the old version as the server hasn't been updated yet

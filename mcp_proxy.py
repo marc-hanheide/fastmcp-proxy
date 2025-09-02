@@ -6,6 +6,8 @@ from fastmcp.server.auth.providers.jwt import JWTVerifier, StaticTokenVerifier
 from fastmcp.server.auth import OAuthProvider
 from starlette.requests import Request
 from starlette.responses import PlainTextResponse
+from eunomia_mcp import create_eunomia_middleware
+from fastmcp.server.auth.providers.google import GoogleProvider
 
 # Load environment variables from .env file
 load_dotenv()
@@ -14,6 +16,7 @@ load_dotenv()
 OIDC_CLIENT_ID = os.getenv("OIDC_CLIENT_ID")
 OIDC_CLIENT_SECRET = os.getenv("OIDC_CLIENT_SECRET")
 OIDC_ISSUER = os.getenv("OIDC_ISSUER")
+ZROK_NAME = os.getenv("ZROK_NAME")
 
 # Load server configuration from a JSON file
 proxy_config = {
@@ -36,56 +39,12 @@ proxy_config = {
     }
 }
 
-# Scope configuration for each server (separate from FastMCP config)
-server_scopes = {"context7": "context", "time": "time", "mapbox": "maps"}
-
-# Initialize authentication verifier
-if OIDC_CLIENT_ID and OIDC_CLIENT_SECRET and OIDC_ISSUER:
-    # Use OIDC authentication for production
-    # Construct the JWKS URI from the issuer
-    jwks_uri = f"{OIDC_ISSUER}/protocol/openid-connect/certs"
-
-    verifier = JWTVerifier(
-        jwks_uri=jwks_uri,
-        issuer=OIDC_ISSUER,
-        audience=OIDC_CLIENT_ID,
-        algorithm="RS256",
-        required_scopes=["openid"],  # Base required scope
-    )
-    print(f"Using OIDC authentication with issuer: {OIDC_ISSUER}")
-
-    # Create the OAuth provider with Keycloak configuration
-    auth = OAuthProvider(
-        # Base URL for this MCP server
-        base_url="http://127.0.0.1:8001",  # Default, will be updated based on actual host/port
-        
-        # Keycloak issuer URL for OIDC discovery
-        issuer_url=OIDC_ISSUER,
-        
-        # Required scopes for access
-        required_scopes=["openid"],
-        
-        # Optional: specify resource server URL if different from base_url
-        resource_server_url=None,  # Will use base_url + "/mcp" by default
-    )
-
-
-else:
-    # Fallback to static token for development
-    print("Warning: OIDC not configured, using static token for development")
-    verifier = StaticTokenVerifier(
-        tokens={
-            "testtoken": {
-                "client_id": "development",
-                "scopes": ["openid", "context", "time", "maps"],
-            }
-        },
-        required_scopes=["openid"],
-    )
-    auth = verifier
 
 # Create a FastMCP application instance that acts as a proxy
-app = FastMCP.as_proxy(proxy_config, name="proxy", auth=auth)
+app = FastMCP.as_proxy(proxy_config, name="Google-authenticated MCP proxy")
+# Add middleware to your server
+middleware = create_eunomia_middleware(policy_file="mcp_policies.json")
+app.add_middleware(middleware)
 
 
 @app.tool
