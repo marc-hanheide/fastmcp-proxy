@@ -1,12 +1,14 @@
 import argparse
+import asyncio
 import json
 import logging
 import os
 import re
+from xmlrpc import client
 
 from dotenv import load_dotenv
 from eunomia_mcp import create_eunomia_middleware
-from fastmcp import FastMCP
+from fastmcp import FastMCP, Client
 from fastmcp.server.auth import OAuthProvider
 from fastmcp.server.auth.providers.google import GoogleProvider
 from fastmcp.server.auth.providers.jwt import JWTVerifier, StaticTokenVerifier
@@ -77,6 +79,34 @@ def load_proxy_config():
 # Load server configuration from a JSON file
 proxy_config = load_proxy_config()
 
+def init_client():
+    # Local Python script
+    client = Client(proxy_config)
+
+    async def client_main():
+        async with client:
+            # Basic server interaction
+            await client.ping()
+            
+            # List available operations
+            tools = await client.list_tools()
+            resources = await client.list_resources()
+            prompts = await client.list_prompts()
+            
+            tool_names = [tool.name for tool in tools]
+            resource_names = [resource.name for resource in resources]
+            prompt_names = [prompt.name for prompt in prompts]
+
+            print("Available tools:", pformat(tool_names))
+            print("Available resources:", pformat(resource_names))
+            print("Available prompts:", pformat(prompt_names))
+            await client.close()
+
+
+    asyncio.run(client_main())
+
+init_client()
+    
 
 # Create a FastMCP application instance that acts as a proxy
 app = FastMCP.as_proxy(proxy_config, name="Google-authenticated MCP proxy")

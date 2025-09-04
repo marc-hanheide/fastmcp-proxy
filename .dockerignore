@@ -4,4 +4,5 @@
 __pycache__/
 *.md
 test_*.py
-
+creds/
+.github/
