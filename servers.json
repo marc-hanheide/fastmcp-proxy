@@ -1,18 +1,5 @@
 {
   "mcpServers": {
-    "msgraph": {
-      "transport": "stdio",
-      "command": "uvx",
-      "args": [
-        "--from",
-        "git+https://github.com/marc-hanheide/microsoft-mcp",
-        "microsoft-mcp"
-      ],
-      "env": {
-        "MICROSOFT_MCP_CLIENT_ID": "${MICROSOFT_MCP_CLIENT_ID}",
-        "MICROSOFT_MCP_TENANT_ID": "${MICROSOFT_MCP_TENANT_ID}"
-      }
-    },
     "time": {
       "transport": "stdio",
       "command": "uvx",
