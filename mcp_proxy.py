@@ -25,6 +25,7 @@ logger.setLevel(logging.INFO)
 
 logger.info("Starting MCP proxy server...")
 
+
 def load_proxy_config():
     """Load server configuration from a JSON file with environment variable interpolation.
 
@@ -79,6 +80,7 @@ def load_proxy_config():
 # Load server configuration from a JSON file
 proxy_config = load_proxy_config()
 
+
 def init_client():
     # Local Python script
     client = Client(proxy_config)
@@ -87,12 +89,12 @@ def init_client():
         async with client:
             # Basic server interaction
             await client.ping()
-            
+
             # List available operations
             tools = await client.list_tools()
             resources = await client.list_resources()
             prompts = await client.list_prompts()
-            
+
             tool_names = [tool.name for tool in tools]
             resource_names = [resource.name for resource in resources]
             prompt_names = [prompt.name for prompt in prompts]
@@ -102,11 +104,11 @@ def init_client():
             print("Available prompts:", pformat(prompt_names))
             await client.close()
 
-
     asyncio.run(client_main())
 
+
 init_client()
-    
+
 
 # Create a FastMCP application instance that acts as a proxy
 app = FastMCP.as_proxy(proxy_config, name="Google-authenticated MCP proxy")
