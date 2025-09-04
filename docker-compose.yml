@@ -6,6 +6,7 @@ services:
       dockerfile: Dockerfile
     volumes:
       - ./servers.json:/app/servers.json:ro
+      - ./creds:/creds
     env_file:
       - .env
 

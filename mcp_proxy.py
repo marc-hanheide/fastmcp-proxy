@@ -1,43 +1,81 @@
 import argparse
+import json
+import logging
 import os
+import re
+
 from dotenv import load_dotenv
+from eunomia_mcp import create_eunomia_middleware
 from fastmcp import FastMCP
-from fastmcp.server.auth.providers.jwt import JWTVerifier, StaticTokenVerifier
 from fastmcp.server.auth import OAuthProvider
+from fastmcp.server.auth.providers.google import GoogleProvider
+from fastmcp.server.auth.providers.jwt import JWTVerifier, StaticTokenVerifier
 from starlette.requests import Request
 from starlette.responses import PlainTextResponse
-from eunomia_mcp import create_eunomia_middleware
-from fastmcp.server.auth.providers.google import GoogleProvider
+from pprint import pformat
 
 # Load environment variables from .env file
 load_dotenv()
 
-# Get OIDC configuration from environment variables
-OIDC_CLIENT_ID = os.getenv("OIDC_CLIENT_ID")
-OIDC_CLIENT_SECRET = os.getenv("OIDC_CLIENT_SECRET")
-OIDC_ISSUER = os.getenv("OIDC_ISSUER")
-ZROK_NAME = os.getenv("ZROK_NAME")
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("mcp_proxy")
+logger.setLevel(logging.INFO)
+
+logger.info("Starting MCP proxy server...")
+
+def load_proxy_config():
+    """Load server configuration from a JSON file with environment variable interpolation.
+
+    The file path is determined by the MCP_PROXY_SERVERS_CONFIG environment variable,
+    which defaults to 'servers.json' in the module's root directory.
+
+    Environment variables in the format ${ENV_VARIABLE} will be replaced with their
+    values if they exist, otherwise they will be left unchanged.
+    """
+    # Get the directory where this script is located
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+
+    # Get config file path from environment variable or use default
+    config_file = os.getenv(
+        "MCP_PROXY_SERVERS_CONFIG", os.path.join(script_dir, "servers.json")
+    )
+
+    def interpolate_env_vars(text):
+        """Replace ${ENV_VAR} patterns with environment variable values if they exist."""
+
+        def replace_var(match):
+            var_name = match.group(1)
+            env_value = os.getenv(var_name)
+            if env_value is not None:
+                return env_value
+            else:
+                # Return the original placeholder if env var doesn't exist
+                return match.group(0)
+
+        return re.sub(r"\$\{([^}]+)\}", replace_var, text)
+
+    logger.info(f"Loading proxy configuration from: {config_file}")
+    try:
+        with open(config_file, "r") as f:
+            # Read the raw content and perform environment variable interpolation
+            raw_content = f.read()
+            interpolated_content = interpolate_env_vars(raw_content)
+
+            # Parse the interpolated JSON
+            config = json.loads(interpolated_content)
+            logger.info(f"Loaded proxy configuration from: {config_file}")
+            logger.info(f"Proxy configuration: {pformat(config)}")
+            return config
+    except FileNotFoundError:
+        logger.error(f"Configuration file not found: {config_file}")
+        raise
+    except json.JSONDecodeError as e:
+        logger.error(f"Invalid JSON in configuration file {config_file}: {e}")
+        raise
+
 
 # Load server configuration from a JSON file
-proxy_config = {
-    "mcpServers": {
-        "context7": {
-            "transport": "stdio",
-            "command": "npx",
-            "args": ["-y", "@upstash/context7-mcp"],
-        },
-        "time": {
-            "transport": "stdio",
-            "command": "uvx",
-            "args": ["mcp-server-time", "--local-timezone", "Etc/UTC"],
-        },
-        "mapbox": {
-            "timeout": 60,
-            "command": "npx",
-            "args": ["-y", "@mapbox/mcp-server"],
-        },
-    }
-}
+proxy_config = load_proxy_config()
 
 
 # Create a FastMCP application instance that acts as a proxy
@@ -59,21 +97,7 @@ async def health_check(request: Request) -> PlainTextResponse:
 
 
 def main(transport="http", port=8000, host="127.0.0.1"):
-    print(f"Starting proxy with {transport} transport...")
-    
-    # Update the OAuth provider base URL if using OAuthProvider
-    if OIDC_CLIENT_ID and OIDC_CLIENT_SECRET and OIDC_ISSUER:
-        # Update the base URL in the OAuth provider to match actual server configuration
-        if hasattr(auth, 'base_url'):
-            if host == "0.0.0.0":
-                # When binding to all interfaces, use localhost for OAuth redirects
-                new_base_url = f"http://localhost:{port}"
-            else:
-                new_base_url = f"http://{host}:{port}"
-            
-            # Update the base URL in the OAuth provider
-            auth.base_url = new_base_url
-            print(f"OAuth provider configured with base URL: {new_base_url}")
+    logger.info(f"Starting proxy with {transport} transport...")
 
     if transport == "stdio":
         # Run the server over standard input/output
