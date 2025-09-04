@@ -6,6 +6,8 @@
       "args": [
         "--from",
         "git+https://github.com/marc-hanheide/microsoft-mcp",
+        "--reinstall-package",
+        "microsoft-mcp",
         "microsoft-mcp"
       ],
       "env": {

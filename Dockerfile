@@ -14,6 +14,13 @@ WORKDIR /app
 COPY requirements.txt servers.json /app/
 RUN uv pip install --system --no-cache-dir -r requirements.txt
 
+
+# preinsall some to make startup faster
+RUN uvx --from git+https://github.com/marc-hanheide/microsoft-mcp python --version
+RUN uvx --from mcp-server-time python --version
+RUN npm install @mapbox/mcp-server
+
+
 FROM proxy_requirements AS proxy
 
 # Copy the rest of the application code
@@ -30,7 +37,4 @@ EXPOSE 8000 8001
 ENTRYPOINT ["/entrypoint.sh"]
 
 FROM proxy AS mcps
-RUN uvx --from git+https://github.com/marc-hanheide/microsoft-mcp python --version
-RUN uvx --from mcp-server-time python --version
-RUN npm install @mapbox/mcp-server
 # use this step to add more MCPs from source directly as needed
